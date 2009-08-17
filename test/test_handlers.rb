@@ -35,9 +35,8 @@ class HandlersTest < Test::Unit::TestCase
 
   def setup
     stats = Mongrel::StatisticsFilter.new(:sample_rate => 1)
-    @port = process_based_port
-    
-    @config = Mongrel::Configurator.new :host => '127.0.0.1', :port => @port do
+
+    @config = Mongrel::Configurator.new :host => '127.0.0.1', :port => 9998 do
       listener do
         uri "/", :handler => SimpleHandler.new
         uri "/", :handler => stats
@@ -50,31 +49,51 @@ class HandlersTest < Test::Unit::TestCase
         uri "/relative", :handler => Mongrel::DirHandler.new(nil, listing_allowed=false, index_html="none")
       end
     end
+    
+    File.open("/tmp/testfile", 'w') do
+      # Do nothing
+    end
+    
     @config.run
   end
 
   def teardown
     @config.stop(false, true)
+    File.delete "/tmp/testfile"
   end
 
   def test_more_web_server
-    res = hit([ "http://localhost:#{@port}/test",
-          "http://localhost:#{@port}/dumb",
-          "http://localhost:#{@port}/404",
-          "http://localhost:#{@port}/files/rdoc/index.html",
-          "http://localhost:#{@port}/files/rdoc/nothere.html",
-          "http://localhost:#{@port}/files/rdoc/",
-          "http://localhost:#{@port}/files_nodir/rdoc/",
-          "http://localhost:#{@port}/status",
+    res = hit([ "http://localhost:9998/test",
+          "http://localhost:9998/dumb",
+          "http://localhost:9998/404",
+          "http://localhost:9998/files/rdoc/index.html",
+          "http://localhost:9998/files/rdoc/nothere.html",
+          "http://localhost:9998/files/rdoc/",
+          "http://localhost:9998/files_nodir/rdoc/",
+          "http://localhost:9998/status",
     ])
-
-    # XXX This can't possibly have good coverage.
     check_status res, String
+  end
+  
+  def test_nil_dirhandler
+    # Camping uses this internally
+    handler = Mongrel::DirHandler.new(nil, false)  
+    assert handler.can_serve("/tmp/testfile")
+    # Not a bug! A nil @file parameter is the only circumstance under which
+    # we are allowed to serve any existing file
+    assert handler.can_serve("../../../../../../../../../../tmp/testfile")
+  end
+  
+  def test_non_nil_dirhandler_is_not_vulnerable_to_path_traversal
+    # The famous security bug of Mongrel 1.1.2
+    handler = Mongrel::DirHandler.new("/doc", false)
+    assert_nil handler.can_serve("/tmp/testfile")
+    assert_nil handler.can_serve("../../../../../../../../../../tmp/testfile")
   end
 
   def test_deflate
-    Net::HTTP.start("localhost", @port) do |h|
-      # test that no accept-encoding returns a non-deflated response
+    Net::HTTP.start("localhost", 9998) do |h|
+      # Test that no accept-encoding returns a non-deflated response
       req = h.get("/dumb")
       assert(
         !req['Content-Encoding'] ||
@@ -98,7 +117,7 @@ class HandlersTest < Test::Unit::TestCase
   #end
 
   def test_unregister
-    @config.listeners["127.0.0.1:#{@port}"].unregister("/")
+    @config.listeners["127.0.0.1:9998"].unregister("/")
   end
 end
 

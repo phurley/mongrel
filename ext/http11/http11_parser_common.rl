@@ -11,12 +11,11 @@
   safe = ("$" | "-" | "_" | ".");
   extra = ("!" | "*" | "'" | "(" | ")" | ",");
   reserved = (";" | "/" | "?" | ":" | "@" | "&" | "=" | "+");
-  sorta_safe = ("\"" | "<" | ">");
-  unsafe = (CTL | " " | "#" | "%" | sorta_safe);
+  unsafe = (CTL | " " | "\"" | "#" | "%" | "<" | ">");
   national = any -- (alpha | digit | reserved | extra | safe | unsafe);
   unreserved = (alpha | digit | safe | extra | national);
   escape = ("%" xdigit xdigit);
-  uchar = (unreserved | escape | sorta_safe);
+  uchar = (unreserved | escape);
   pchar = (uchar | ":" | "@" | "&" | "=" | "+");
   tspecials = ("(" | ")" | "<" | ">" | "@" | "," | ";" | ":" | "\\" | "\"" | "/" | "[" | "]" | "?" | "=" | "{" | "}" | " " | "\t");
 
@@ -42,7 +41,7 @@
   HTTP_Version = ( "HTTP/" http_number ) >mark %http_version ;
   Request_Line = ( Method " " Request_URI ("#" Fragment){0,1} " " HTTP_Version CRLF ) ;
 
-  field_name = ( token -- ":" )+ >start_field $snake_upcase_field %write_field;
+  field_name = ( token -- ":" )+ >start_field %write_field;
 
   field_value = any* >start_value %write_value;
 

@@ -21,12 +21,11 @@ end
 class WebServerTest < Test::Unit::TestCase
 
   def setup
-    @port = process_based_port
     @valid_request = "GET / HTTP/1.1\r\nHost: www.zedshaw.com\r\nContent-Type: text/plain\r\n\r\n"
     
     redirect_test_io do
       # We set num_processors=1 so that we can test the reaping code
-      @server = HttpServer.new("127.0.0.1", @port, num_processors=1)
+      @server = HttpServer.new("127.0.0.1", 9998, num_processors=1)
     end
     
     @tester = TestHandler.new
@@ -43,14 +42,14 @@ class WebServerTest < Test::Unit::TestCase
   end
 
   def test_simple_server
-    hit(["http://localhost:#{@port}/test"])
+    hit(['http://localhost:9998/test'])
     assert @tester.ran_test, "Handler didn't really run"
   end
 
 
   def do_test(string, chunk, close_after=nil, shutdown_delay=0)
     # Do not use instance variables here, because it needs to be thread safe
-    socket = TCPSocket.new("127.0.0.1", @port);
+    socket = TCPSocket.new("127.0.0.1", 9998);
     request = StringIO.new(string)
     chunks_out = 0
 
@@ -95,7 +94,7 @@ class WebServerTest < Test::Unit::TestCase
 
   def test_num_processors_overload
     redirect_test_io do
-      assert_raises Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EINVAL do
+      assert_raises Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EINVAL, IOError do
         tests = [
           Thread.new { do_test(@valid_request, 1) },
           Thread.new { do_test(@valid_request, 10) },
